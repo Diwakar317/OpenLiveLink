@@ -1,0 +1,41 @@
+name: JCB Data Extraction
+
+on:
+  schedule:
+    # Runs every 6 hours at minute 0
+    - cron: '0 */6 * * *'
+  workflow_dispatch: # Allows manual trigger from the Actions tab
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Extraction Script
+        env:
+          JCB_TOKEN_ID: ${{ secrets.JCB_TOKEN_ID }}
+          JCB_SERIAL_NUMBER: ${{ secrets.JCB_SERIAL_NUMBER }}
+          JCB_TENANCY_ID: ${{ secrets.JCB_TENANCY_ID }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: node scripts/extract.js
+
+      - name: Alert on Failure (Create GitHub Issue)
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "?? JCB Data Extraction Failed!" \
+            --body "The GitHub Action failed to extract JCB data. This usually means your **JCB_TOKEN_ID** has expired and needs to be updated in the repository secrets. Check the [Action Logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details." \
+            --assignee "${{ github.actor }}"
