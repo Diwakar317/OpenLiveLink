@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 
 const API_BASE = '/api/payments';
 
@@ -211,10 +211,25 @@ export default function PayLedgerDashboard() {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [page, setPage] = useState(1);
-  const limit = 15;
+  const [page, setPage] = useState(() => {
+    const saved = sessionStorage.getItem('payLedgerPage');
+    return saved ? parseInt(saved, 10) : 1;
+  });
+  const [limit, setLimit] = useState(() => {
+    const saved = sessionStorage.getItem('payLedgerLimit');
+    return saved ? parseInt(saved, 10) : 15;
+  });
   const [sortBy, setSortBy] = useState('date');
   const [sortDir, setSortDir] = useState('desc');
+
+  // Sync to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem('payLedgerPage', page.toString());
+  }, [page]);
+
+  useEffect(() => {
+    sessionStorage.setItem('payLedgerLimit', limit.toString());
+  }, [limit]);
 
   // Compute actual start/end dates from dateRange preset
   const computedDates = useMemo(() => {
@@ -276,16 +291,21 @@ export default function PayLedgerDashboard() {
   };
 
   // Reset page when filters change
+  const isFirstMount = useRef(true);
   useEffect(() => {
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      return;
+    }
     if (dateRange === 'custom' && (!customStartDate || !customEndDate)) return;
     setPage(1);
-  }, [search, dateRange, customStartDate, customEndDate, statusFilter, sortBy, sortDir]);
+  }, [search, dateRange, customStartDate, customEndDate, statusFilter, sortBy, sortDir, limit]);
 
   useEffect(() => {
     if (dateRange === 'custom' && (!customStartDate || !customEndDate)) return;
     const timer = setTimeout(() => fetchPayments(), search ? 400 : 0);
     return () => clearTimeout(timer);
-  }, [search, dateRange, customStartDate, customEndDate, statusFilter, page, sortBy, sortDir]);
+  }, [search, dateRange, customStartDate, customEndDate, statusFilter, page, limit, sortBy, sortDir]);
 
   const handleSort = (field) => {
     if (sortBy === field) {
@@ -459,22 +479,66 @@ export default function PayLedgerDashboard() {
 
             {/* Pagination */}
             {!loading && totalCount > 0 && (
-              <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center text-sm mt-auto">
-                <span className="text-slate-500">
-                  Showing <span className="font-medium text-slate-700">{(page - 1) * limit + 1}</span> to <span className="font-medium text-slate-700">{Math.min(page * limit, totalCount)}</span> of <span className="font-medium text-slate-700">{totalCount}</span>
-                </span>
-                <div className="flex gap-2">
+              <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center text-sm mt-auto gap-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-slate-500">
+                    Showing <span className="font-medium text-slate-700">{(page - 1) * limit + 1}</span> to <span className="font-medium text-slate-700">{Math.min(page * limit, totalCount)}</span> of <span className="font-medium text-slate-700">{totalCount}</span>
+                  </span>
+                  <select
+                    value={limit}
+                    onChange={(e) => setLimit(Number(e.target.value))}
+                    className="px-2 py-1 text-xs border border-slate-200 rounded bg-white text-slate-700 outline-none cursor-pointer focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400/20"
+                  >
+                    <option value={15}>15 per page</option>
+                    <option value={30}>30 per page</option>
+                    <option value={50}>50 per page</option>
+                    <option value={100}>100 per page</option>
+                  </select>
+                </div>
+                <div className="flex gap-1 items-center">
                   <button
                     onClick={() => setPage(p => Math.max(1, p - 1))}
                     disabled={page === 1}
-                    className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-xs"
+                    className="px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-xs"
                   >
-                    Previous
+                    Prev
                   </button>
+                  
+                  {(() => {
+                     const totalPages = Math.ceil(totalCount / limit);
+                     const maxPages = 5;
+                     let start = Math.max(1, page - 2);
+                     let end = Math.min(totalPages, start + maxPages - 1);
+                     if (end - start + 1 < maxPages) start = Math.max(1, end - maxPages + 1);
+                     
+                     const pages = [];
+                     for (let i = start; i <= end; i++) pages.push(i);
+                     
+                     return (
+                       <>
+                         {start > 1 && (
+                           <>
+                             <button onClick={() => setPage(1)} className={`w-8 h-8 flex items-center justify-center rounded-lg border text-xs font-medium transition-colors ${page === 1 ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>1</button>
+                             {start > 2 && <span className="text-slate-400 px-1">...</span>}
+                           </>
+                         )}
+                         {pages.map(p => (
+                           <button key={p} onClick={() => setPage(p)} className={`w-8 h-8 flex items-center justify-center rounded-lg border text-xs font-medium transition-colors ${page === p ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>{p}</button>
+                         ))}
+                         {end < totalPages && (
+                           <>
+                             {end < totalPages - 1 && <span className="text-slate-400 px-1">...</span>}
+                             <button onClick={() => setPage(totalPages)} className={`w-8 h-8 flex items-center justify-center rounded-lg border text-xs font-medium transition-colors ${page === totalPages ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>{totalPages}</button>
+                           </>
+                         )}
+                       </>
+                     );
+                  })()}
+
                   <button
                     onClick={() => setPage(p => p + 1)}
                     disabled={page * limit >= totalCount}
-                    className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-xs"
+                    className="px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-xs"
                   >
                     Next
                   </button>
