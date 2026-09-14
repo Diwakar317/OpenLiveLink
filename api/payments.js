@@ -20,7 +20,7 @@ export default async function handler(req, res) {
     let query = supabase.from('payments').select('*', { count: 'exact' });
 
     // Sorting
-    const sortField = sort_by || 'date';
+    const sortField = ['date', 'amount', 'recipient_name'].includes(sort_by) ? sort_by : 'date';
     const isAsc = sort_dir === 'asc';
     
     // Always add a secondary sort by time to keep results stable
@@ -38,8 +38,10 @@ export default async function handler(req, res) {
     }
 
     if (search) {
+      // Escape wildcard characters to prevent complex query DoS
+      const sanitizedSearch = search.replace(/%/g, '\\%').replace(/_/g, '\\_');
       query = query.or(
-        `recipient_name.ilike.%${search}%,upi_id.ilike.%${search}%,remarks.ilike.%${search}%`
+        `recipient_name.ilike.%${sanitizedSearch}%,upi_id.ilike.%${sanitizedSearch}%,remarks.ilike.%${sanitizedSearch}%`
       );
     }
 
@@ -64,8 +66,13 @@ export default async function handler(req, res) {
     }
     
     // Pagination (apply after all filters, before execution)
-    const pageLimit = parseInt(limit) || 20;
-    const pageOffset = parseInt(offset) || 0;
+    let pageLimit = parseInt(limit) || 20;
+    if (pageLimit > 100) pageLimit = 100;
+    if (pageLimit < 1) pageLimit = 20;
+    
+    let pageOffset = parseInt(offset) || 0;
+    if (pageOffset < 0) pageOffset = 0;
+    
     query = query.range(pageOffset, pageOffset + pageLimit - 1);
 
     const { data, error, count } = await query;
@@ -75,58 +82,54 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: error.message });
     }
 
-    // To compute global analytics efficiently, we need a separate query without pagination 
-    // but with the same filters. 
-    // However, if the dataset is small, it's easier to just pull all for analytics.
-    // For Vercel Serverless, doing a count/sum query is better.
-    let analyticsQuery = supabase.from('payments').select('amount, status, recipient_name, date');
-    
-    if (transaction_id) analyticsQuery = analyticsQuery.eq('transaction_id', transaction_id);
-    if (search) analyticsQuery = analyticsQuery.or(`recipient_name.ilike.%${search}%,upi_id.ilike.%${search}%,remarks.ilike.%${search}%`);
-    if (start_date && end_date) analyticsQuery = analyticsQuery.gte('date', start_date).lte('date', end_date);
-    else if (month) {
-      const mStartDate = `${month}-01`;
-      const [year, mon] = month.split('-').map(Number);
-      const mEndDate = new Date(year, mon, 0).toISOString().split('T')[0];
-      analyticsQuery = analyticsQuery.gte('date', mStartDate).lte('date', mEndDate);
+    // Compute global analytics efficiently using the Supabase RPC
+    const rpcParams = {};
+    if (transaction_id) rpcParams.transaction_id_param = transaction_id;
+    if (start_date) rpcParams.start_date_param = start_date;
+    if (end_date) rpcParams.end_date_param = end_date;
+    if (status) rpcParams.status_param = status;
+    if (month && (!start_date || !end_date)) {
+        const mStartDate = `${month}-01`;
+        const [year, mon] = month.split('-').map(Number);
+        const mEndDate = new Date(year, mon, 0).toISOString().split('T')[0];
+        rpcParams.start_date_param = mStartDate;
+        rpcParams.end_date_param = mEndDate;
     }
-    if (status) analyticsQuery = analyticsQuery.eq('status', status);
-    
-    const { data: allFilteredData, error: analyticsError } = await analyticsQuery;
-    if (analyticsError) throw new Error(analyticsError.message);
+    if (search) {
+        // The RPC uses ILIKE, we should pass the sanitized search
+        rpcParams.search_param = search.replace(/%/g, '\\%').replace(/_/g, '\\_');
+    }
 
-    const totalAmount = allFilteredData.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
-    const needsReviewCount = allFilteredData.filter(r => r.status === 'needs_review').length;
+    const { data: analyticsData, error: analyticsError } = await supabase.rpc('get_payment_analytics', rpcParams);
 
-    const now = new Date();
-    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const thisMonthTotal = allFilteredData
-      .filter(r => r.date && r.date.startsWith(currentMonth))
-      .reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
-
-    // Compute top recipients
-    const recipientTotals = {};
-    allFilteredData.forEach(r => {
-        if (!r.recipient_name) return;
-        // Normalize name
-        const name = r.recipient_name.toUpperCase().trim();
-        recipientTotals[name] = (recipientTotals[name] || 0) + (parseFloat(r.amount) || 0);
-    });
-    
-    const topRecipients = Object.entries(recipientTotals)
-        .map(([name, total]) => ({ name, total }))
-        .sort((a, b) => b.total - a.total)
-        .slice(0, 5); // top 5
+    // Fallback if RPC is not deployed yet
+    if (analyticsError && analyticsError.message.includes('Could not find the function')) {
+        console.warn('RPC get_payment_analytics not found. Please run the SQL script in your Supabase dashboard.');
+        return res.status(200).json({
+            payments: data,
+            totalCount: count,
+            analytics: {
+              totalPayments: count,
+              totalAmount: 0,
+              thisMonthTotal: 0,
+              needsReviewCount: 0,
+              topRecipients: [],
+              rpcMissing: true
+            },
+        });
+    } else if (analyticsError) {
+        throw new Error(analyticsError.message);
+    }
 
     return res.status(200).json({
       payments: data,
       totalCount: count,
       analytics: {
         totalPayments: count,
-        totalAmount,
-        thisMonthTotal,
-        needsReviewCount,
-        topRecipients,
+        totalAmount: analyticsData.totalAmount || 0,
+        thisMonthTotal: analyticsData.thisMonthTotal || 0,
+        needsReviewCount: analyticsData.needsReviewCount || 0,
+        topRecipients: analyticsData.topRecipients || [],
       },
     });
   } catch (err) {
