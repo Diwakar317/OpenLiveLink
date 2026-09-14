@@ -605,6 +605,7 @@ export default function PayLedgerDashboard() {
               throw new Error(errData.error || 'Failed to update payment');
             }
             await fetchPayments();
+            setSelectedPayment(updatedPayment);
           } catch (err) {
             console.error(err);
             alert('Error saving payment: ' + err.message);
