@@ -1,13 +1,24 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import FleetDashboard from './components/FleetDashboard';
 import WifiDashboard from './components/WifiDashboard';
 import PayLedgerDashboard from './components/PayLedgerDashboard';
+import Login from './components/Login';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import './index.css';
+
+function ProtectedRoute({ children }) {
+  const { session } = useAuth();
+  if (!session) {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
+}
 
 function MainLayout() {
   const location = useLocation();
   const currentPath = location.pathname;
+  const { signOut } = useAuth();
   
   const navItems = [
     { path: '/', label: 'FLEET' },
@@ -46,11 +57,19 @@ function MainLayout() {
             ))}
           </nav>
         </div>
-        <div className="flex items-center gap-2 md:gap-3">
-          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
-          <span className="text-xs md:text-sm font-semibold text-slate-600 hidden sm:block">
-            {statusLabel[currentPath] || 'Dashboard'}
-          </span>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+            <span className="text-xs md:text-sm font-semibold text-slate-600 hidden sm:block">
+              {statusLabel[currentPath] || 'Dashboard'}
+            </span>
+          </div>
+          <button 
+            onClick={signOut}
+            className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-200"
+          >
+            Sign Out
+          </button>
         </div>
       </header>
 
@@ -69,9 +88,18 @@ function MainLayout() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <MainLayout />
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="*" element={
+            <ProtectedRoute>
+              <MainLayout />
+            </ProtectedRoute>
+          } />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 
