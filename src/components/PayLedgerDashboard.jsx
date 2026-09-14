@@ -208,6 +208,8 @@ export default function PayLedgerDashboard() {
   // Filters & Pagination State
   const [search, setSearch] = useState('');
   const [dateRange, setDateRange] = useState('');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
   const limit = 15;
@@ -232,9 +234,11 @@ export default function PayLedgerDashboard() {
       const d = new Date(now);
       d.setDate(d.getDate() - 7);
       return { start: d.toISOString().split('T')[0], end: now.toISOString().split('T')[0] };
+    } else if (dateRange === 'custom') {
+      return { start: customStartDate, end: customEndDate };
     }
     return { start: '', end: '' };
-  }, [dateRange]);
+  }, [dateRange, customStartDate, customEndDate]);
 
   const fetchPayments = async () => {
     setLoading(true);
@@ -255,7 +259,7 @@ export default function PayLedgerDashboard() {
 
       const queryString = params.toString();
       const url = queryString ? `${API_BASE}?${queryString}` : API_BASE;
-      const res = await fetch(url);
+      const res = await fetch(url, { cache: 'no-store' });
 
       if (!res.ok) throw new Error(`API returned ${res.status}`);
       const data = await res.json();
@@ -274,12 +278,12 @@ export default function PayLedgerDashboard() {
   // Reset page when filters change
   useEffect(() => {
     setPage(1);
-  }, [search, dateRange, statusFilter, sortBy, sortDir]);
+  }, [search, dateRange, customStartDate, customEndDate, statusFilter, sortBy, sortDir]);
 
   useEffect(() => {
     const timer = setTimeout(() => fetchPayments(), search ? 400 : 0);
     return () => clearTimeout(timer);
-  }, [search, dateRange, statusFilter, page, sortBy, sortDir]);
+  }, [search, dateRange, customStartDate, customEndDate, statusFilter, page, sortBy, sortDir]);
 
   const handleSort = (field) => {
     if (sortBy === field) {
@@ -330,14 +334,39 @@ export default function PayLedgerDashboard() {
 
               <select
                 value={dateRange}
-                onChange={(e) => setDateRange(e.target.value)}
+                onChange={(e) => {
+                  setDateRange(e.target.value);
+                  if (e.target.value !== 'custom') {
+                    setCustomStartDate('');
+                    setCustomEndDate('');
+                  }
+                }}
                 className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20 outline-none transition-all text-slate-700 cursor-pointer"
               >
                 <option value="">All Time</option>
                 <option value="this_month">This Month</option>
                 <option value="last_month">Last Month</option>
                 <option value="last_7_days">Last 7 Days</option>
+                <option value="custom">Custom Range</option>
               </select>
+
+              {dateRange === 'custom' && (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20 outline-none transition-all text-slate-700"
+                  />
+                  <span className="text-slate-400">to</span>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20 outline-none transition-all text-slate-700"
+                  />
+                </div>
+              )}
 
               <select
                 value={statusFilter}
