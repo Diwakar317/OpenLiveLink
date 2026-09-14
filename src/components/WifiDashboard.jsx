@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { formatInTimeZone } from 'date-fns-tz';
 import {
@@ -67,68 +67,34 @@ function WifiDashboard() {
 
     async function fetchData() {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('airtel_usage')
-        .select('*')
-        .eq('billing_cycle', selectedCycle)
-        .order('timestamp', { ascending: true });
+      const { data, error } = await supabase.rpc('get_wifi_usage_analytics', { cycle: selectedCycle });
 
-      if (error) {
+      if (error || !data) {
         console.error("Error fetching data for cycle:", error);
         setLoading(false);
         return;
       }
 
-      aggregateData(data || []);
+      setTotals({
+        download: data.totalDownload || 0,
+        upload: data.totalUpload || 0,
+        usage: data.totalUsage || 0
+      });
+
+      // Format for Recharts (convert to GB)
+      const formattedChartData = (data.dailyUsage || []).map(d => ({
+        date: d.date,
+        Download: parseFloat((d.download / (1024 ** 3)).toFixed(2)),
+        Upload: parseFloat((d.upload / (1024 ** 3)).toFixed(2)),
+        Usage: parseFloat((d.usage / (1024 ** 3)).toFixed(2)),
+      }));
+
+      setChartData(formattedChartData);
       setLoading(false);
     }
 
     fetchData();
   }, [selectedCycle]);
-
-  const aggregateData = (data) => {
-    let totalDownload = 0;
-    let totalUpload = 0;
-    let totalUsage = 0;
-    const dailyMap = {};
-
-    data.forEach(row => {
-      const dld = Number(row.download_delta_bytes) || 0;
-      const uld = Number(row.upload_delta_bytes) || 0;
-      const tot = Number(row.total_delta_bytes) || 0;
-      
-      totalDownload += dld;
-      totalUpload += uld;
-      totalUsage += tot;
-
-      // Group by Asia/Kolkata date
-      const dateKey = formatInTimeZone(new Date(row.timestamp), 'Asia/Kolkata', 'MMM dd');
-      
-      if (!dailyMap[dateKey]) {
-        dailyMap[dateKey] = { date: dateKey, download: 0, upload: 0, usage: 0 };
-      }
-      
-      dailyMap[dateKey].download += dld;
-      dailyMap[dateKey].upload += uld;
-      dailyMap[dateKey].usage += tot;
-    });
-
-    setTotals({
-      download: totalDownload,
-      upload: totalUpload,
-      usage: totalUsage
-    });
-
-    // Format for Recharts (convert to GB)
-    const formattedChartData = Object.values(dailyMap).map(d => ({
-      date: d.date,
-      Download: parseFloat((d.download / (1024 ** 3)).toFixed(2)),
-      Upload: parseFloat((d.upload / (1024 ** 3)).toFixed(2)),
-      Usage: parseFloat((d.usage / (1024 ** 3)).toFixed(2)),
-    }));
-
-    setChartData(formattedChartData);
-  };
 
   const formatGB = (bytes) => (bytes / (1024 ** 3)).toFixed(2);
   const formatTB = (bytes) => (bytes / (1024 ** 4)).toFixed(2);
