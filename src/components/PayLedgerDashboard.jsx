@@ -78,52 +78,119 @@ function SkeletonRow() {
   );
 }
 
-function PaymentDetailModal({ payment, onClose }) {
+function PaymentDetailModal({ payment, onClose, onSave }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({});
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (payment) {
+      setEditForm({ ...payment });
+      setIsEditing(false);
+    }
+  }, [payment]);
+
   if (!payment) return null;
+
   const identifier = getIdentifier(payment);
 
+  const handleSave = async () => {
+    setIsSaving(true);
+    await onSave(editForm);
+    setIsSaving(false);
+    setIsEditing(false);
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50">
-          <h3 className="font-semibold text-slate-800">Payment Details</h3>
-          <button onClick={onClose} className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-          </button>
-        </div>
-        <div className="p-5 space-y-4">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm text-slate-500">Amount</p>
-              <p className="text-3xl font-bold text-slate-900">{formatCurrency(payment.amount)}</p>
-            </div>
-            <StatusBadge status={payment.status} />
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
-            <div>
-              <p className="text-xs text-slate-500 uppercase font-semibold">Date & Time</p>
-              <p className="text-sm font-medium text-slate-800">{formatDate(payment.date)} • {formatTime(payment.time)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 uppercase font-semibold">Transaction ID</p>
-              <p className="text-sm font-medium text-slate-800 font-mono">{payment.transaction_id || '—'}</p>
-            </div>
-            <div className="col-span-2">
-              <p className="text-xs text-slate-500 uppercase font-semibold">Recipient</p>
-              <p className="text-sm font-medium text-slate-800">{payment.recipient_name || '—'}</p>
-            </div>
-            <div className="col-span-2">
-              <p className="text-xs text-slate-500 uppercase font-semibold">{identifier.type || 'Identifier'}</p>
-              <p className="text-sm font-medium text-slate-800 font-mono">{identifier.value || '—'}</p>
-            </div>
-            {payment.remarks && (
-              <div className="col-span-2">
-                <p className="text-xs text-slate-500 uppercase font-semibold">Remarks</p>
-                <p className="text-sm font-medium text-slate-800 p-2 bg-slate-50 rounded-lg mt-1 border border-slate-100">{payment.remarks}</p>
-              </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md my-8 animate-in fade-in zoom-in-95 duration-200">
+        <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50 sticky top-0 rounded-t-2xl z-10">
+          <h3 className="font-semibold text-slate-800">{isEditing ? 'Edit Payment' : 'Payment Details'}</h3>
+          <div className="flex items-center gap-2">
+            {!isEditing ? (
+              <button onClick={() => setIsEditing(true)} className="px-3 py-1 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors">
+                Edit
+              </button>
+            ) : (
+              <button onClick={handleSave} disabled={isSaving} className="px-3 py-1 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50">
+                {isSaving ? 'Saving...' : 'Save'}
+              </button>
             )}
+            <button onClick={onClose} className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
           </div>
+        </div>
+        <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+          {isEditing ? (
+             <div className="space-y-4">
+               <div>
+                 <label className="block text-xs font-semibold text-slate-500 uppercase">Amount</label>
+                 <input type="number" value={editForm.amount || ''} onChange={e => setEditForm({...editForm, amount: e.target.value})} className="mt-1 w-full p-2 border border-slate-300 rounded-md focus:ring focus:ring-blue-200 outline-none" />
+               </div>
+               <div className="grid grid-cols-2 gap-4">
+                 <div>
+                   <label className="block text-xs font-semibold text-slate-500 uppercase">Date (YYYY-MM-DD)</label>
+                   <input type="text" value={editForm.date || ''} onChange={e => setEditForm({...editForm, date: e.target.value})} className="mt-1 w-full p-2 border border-slate-300 rounded-md focus:ring focus:ring-blue-200 outline-none" />
+                 </div>
+                 <div>
+                   <label className="block text-xs font-semibold text-slate-500 uppercase">Time (HH:MM:SS)</label>
+                   <input type="text" value={editForm.time || ''} onChange={e => setEditForm({...editForm, time: e.target.value})} className="mt-1 w-full p-2 border border-slate-300 rounded-md focus:ring focus:ring-blue-200 outline-none" />
+                 </div>
+               </div>
+               <div>
+                 <label className="block text-xs font-semibold text-slate-500 uppercase">Recipient</label>
+                 <input type="text" value={editForm.recipient_name || ''} onChange={e => setEditForm({...editForm, recipient_name: e.target.value})} className="mt-1 w-full p-2 border border-slate-300 rounded-md focus:ring focus:ring-blue-200 outline-none" />
+               </div>
+               <div>
+                 <label className="block text-xs font-semibold text-slate-500 uppercase">UPI ID</label>
+                 <input type="text" value={editForm.upi_id || ''} onChange={e => setEditForm({...editForm, upi_id: e.target.value})} className="mt-1 w-full p-2 border border-slate-300 rounded-md focus:ring focus:ring-blue-200 outline-none" />
+               </div>
+               <div>
+                 <label className="block text-xs font-semibold text-slate-500 uppercase">Account Number</label>
+                 <input type="text" value={editForm.account_number || ''} onChange={e => setEditForm({...editForm, account_number: e.target.value})} className="mt-1 w-full p-2 border border-slate-300 rounded-md focus:ring focus:ring-blue-200 outline-none" />
+               </div>
+               <div>
+                 <label className="block text-xs font-semibold text-slate-500 uppercase">Remarks</label>
+                 <textarea value={editForm.remarks || ''} onChange={e => setEditForm({...editForm, remarks: e.target.value})} className="mt-1 w-full p-2 border border-slate-300 rounded-md focus:ring focus:ring-blue-200 outline-none" />
+               </div>
+             </div>
+          ) : (
+            <>
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm text-slate-500">Amount</p>
+                  <p className="text-3xl font-bold text-slate-900">{formatCurrency(payment.amount)}</p>
+                </div>
+                <StatusBadge status={payment.status} />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+                <div>
+                  <p className="text-xs text-slate-500 uppercase font-semibold">Date & Time</p>
+                  <p className="text-sm font-medium text-slate-800">{formatDate(payment.date)} • {formatTime(payment.time)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 uppercase font-semibold">Transaction ID</p>
+                  <p className="text-sm font-medium text-slate-800 font-mono">{payment.transaction_id || '—'}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-xs text-slate-500 uppercase font-semibold">Recipient</p>
+                  <p className="text-sm font-medium text-slate-800">{payment.recipient_name || '—'}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-xs text-slate-500 uppercase font-semibold">{identifier.type || 'Identifier'}</p>
+                  <p className="text-sm font-medium text-slate-800 font-mono">{identifier.value || '—'}</p>
+                </div>
+                {payment.remarks && (
+                  <div className="col-span-2">
+                    <p className="text-xs text-slate-500 uppercase font-semibold">Remarks</p>
+                    <p className="text-sm font-medium text-slate-800 p-2 bg-slate-50 rounded-lg mt-1 border border-slate-100">{payment.remarks}</p>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -430,7 +497,27 @@ export default function PayLedgerDashboard() {
       </div>
       
       {/* Payment Detail Modal */}
-      <PaymentDetailModal payment={selectedPayment} onClose={() => setSelectedPayment(null)} />
+      <PaymentDetailModal 
+        payment={selectedPayment} 
+        onClose={() => setSelectedPayment(null)} 
+        onSave={async (updatedPayment) => {
+          try {
+            const res = await fetch('/api/payments', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(updatedPayment)
+            });
+            if (!res.ok) {
+              const errData = await res.json();
+              throw new Error(errData.error || 'Failed to update payment');
+            }
+            await fetchPayments();
+          } catch (err) {
+            console.error(err);
+            alert('Error saving payment: ' + err.message);
+          }
+        }}
+      />
     </div>
   );
 }

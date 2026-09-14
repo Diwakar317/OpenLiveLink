@@ -1,10 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
-const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
 export default async function handler(req, res) {
-  if (req.method !== 'GET') {
+  if (req.method !== 'GET' && req.method !== 'PUT') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
@@ -13,6 +13,10 @@ export default async function handler(req, res) {
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  if (req.method === 'PUT') {
+    return handlePut(req, res, supabase);
+  }
 
   try {
     const { search, month, start_date, end_date, status, transaction_id, min_amount, max_amount, limit, offset, sort_by, sort_dir } = req.query;
@@ -132,6 +136,50 @@ export default async function handler(req, res) {
         topRecipients: analyticsData.topRecipients || [],
       },
     });
+  } catch (err) {
+    console.error('API Error:', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+async function handlePut(req, res, supabase) {
+  try {
+    const { id, amount, date, time, recipient_name, upi_id, account_number, remarks } = req.body;
+    
+    if (!id) {
+      return res.status(400).json({ error: 'Payment ID is required' });
+    }
+
+    const updates = {};
+    if (amount !== undefined) updates.amount = amount === "" ? null : parseFloat(amount);
+    if (date !== undefined) updates.date = date === "" ? null : date;
+    if (time !== undefined) updates.time = time === "" ? null : time;
+    if (recipient_name !== undefined) updates.recipient_name = recipient_name === "" ? null : recipient_name;
+    if (upi_id !== undefined) updates.upi_id = upi_id === "" ? null : upi_id;
+    if (account_number !== undefined) updates.account_number = account_number === "" ? null : account_number;
+    if (remarks !== undefined) updates.remarks = remarks === "" ? null : remarks;
+    
+    const { data: existing, error: fetchErr } = await supabase.from('payments').select('*').eq('id', id).single();
+    if (fetchErr) {
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+
+    const merged = { ...existing, ...updates };
+    const hasAmount = merged.amount !== null && merged.amount > 0;
+    const hasId = merged.transaction_id || merged.upi_id || merged.account_number;
+    
+    updates.status = (hasAmount && hasId) ? 'valid' : 'needs_review';
+
+    const { data, error } = await supabase
+      .from('payments')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return res.status(200).json({ payment: data });
   } catch (err) {
     console.error('API Error:', err.message);
     return res.status(500).json({ error: err.message });
