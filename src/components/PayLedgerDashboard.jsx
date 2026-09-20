@@ -486,7 +486,7 @@ export default function PayLedgerDashboard() {
            return;
         }
 
-        const res = await fetch('/api/payments', {
+        const res = await authFetch('/api/payments', {
            method: 'POST',
            headers: { 'Content-Type': 'application/json' },
            body: JSON.stringify({ transactions: parsedTxns })
