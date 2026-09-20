@@ -274,6 +274,18 @@ export default function PayLedgerDashboard() {
   const fileInputRef = useRef(null);
   const tableTopRef = useRef(null);
 
+  const authFetch = async (url, options = {}) => {
+    const { data } = await supabase.auth.getSession();
+    const token = data?.session?.access_token;
+    return fetch(url, {
+      ...options,
+      headers: {
+        ...options.headers,
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      }
+    });
+  };
+
   const confirmAction = (options) => {
     setDialog({ type: 'confirm', confirmText: 'Confirm', cancelText: 'Cancel', isDestructive: false, ...options });
   };
@@ -312,7 +324,7 @@ export default function PayLedgerDashboard() {
       const { data, error } = await supabase.from('payments').select('*').order('date', { ascending: false });
       if (error) throw error;
       
-      const aliasRes = await fetch('/api/aliases');
+      const aliasRes = await authFetch('/api/aliases');
       let aliasDict = {};
       if (aliasRes.ok) {
          const ad = await aliasRes.json();
@@ -343,7 +355,7 @@ export default function PayLedgerDashboard() {
     }
 
     try {
-       await fetch('/api/aliases', {
+       await authFetch('/api/aliases', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ aliases: newAliases })
@@ -403,7 +415,7 @@ export default function PayLedgerDashboard() {
     });
 
     try {
-       await fetch('/api/aliases', {
+       await authFetch('/api/aliases', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ aliases: newAliases })
@@ -435,7 +447,7 @@ export default function PayLedgerDashboard() {
     });
 
     try {
-      await fetch(`/api/payments?id=${transactionId}`, { method: 'DELETE' });
+      await authFetch(`/api/payments?id=${transactionId}`, { method: 'DELETE' });
     } catch (e) {
       console.error('Failed to delete transaction', e);
     }

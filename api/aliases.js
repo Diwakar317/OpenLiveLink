@@ -12,6 +12,19 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Supabase credentials not configured' });
   }
 
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Missing or invalid authorization header' });
+  }
+  
+  const token = authHeader.split(' ')[1];
+  const authClient = createClient(SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY);
+  const { data: { user }, error: authError } = await authClient.auth.getUser(token);
+  
+  if (authError || !user) {
+    return res.status(401).json({ error: 'Unauthorized access' });
+  }
+
   const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
   
   if (req.method === 'GET') {

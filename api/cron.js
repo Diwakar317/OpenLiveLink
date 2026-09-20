@@ -1,14 +1,17 @@
-﻿import CryptoJS from 'crypto-js';
+import CryptoJS from 'crypto-js';
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
-const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 const JCB_TOKEN_ID = process.env.JCB_TOKEN_ID;
 const SERIAL_NUMBER = process.env.JCB_SERIAL_NUMBER || "HAR3DXS5K03564175";
 const TENANCY_ID = process.env.JCB_TENANCY_ID || "2742799";
 const CRON_SECRET = process.env.CRON_SECRET;
+const AES_SECRET = process.env.JCB_AES_SECRET;
 
-const AES_SECRET = "U2FsdGVkX1JpMrkNhTK+ERbFNF9696idtaVvUP320Q";
+if (!AES_SECRET) {
+  console.warn("WARNING: JCB_AES_SECRET is missing from environment variables!");
+}
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
