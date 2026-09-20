@@ -633,30 +633,36 @@ export default function PayLedgerDashboard() {
                   className="text-sm text-slate-700 outline-none bg-transparent cursor-pointer flex-grow sm:flex-grow-0 w-full sm:w-auto"
                />
                
-               <button 
-                  onClick={() => { setAppliedStartDate(startDate); setAppliedEndDate(endDate); }} 
-                  disabled={startDate === appliedStartDate && endDate === appliedEndDate}
-                  className={`ml-auto sm:ml-2 px-3 py-1 text-xs font-bold rounded shadow-sm transition-colors w-full sm:w-auto mt-2 sm:mt-0 ${
-                    startDate === appliedStartDate && endDate === appliedEndDate 
-                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                    : 'bg-amber-500 text-white hover:bg-amber-600'
-                  }`}
-               >
-                  Apply
-               </button>
-
-               {(appliedStartDate || appliedEndDate) && (
-                 <button 
-                    onClick={() => { 
-                      setStartDate(''); setEndDate(''); 
-                      setAppliedStartDate(''); setAppliedEndDate(''); 
-                    }} 
-                    className="ml-auto sm:ml-1 p-1.5 rounded bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-500 transition-colors mt-2 sm:mt-0"
-                    title="Clear Date Filter"
-                 >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                 </button>
-               )}
+                 <div className="flex items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+                   <button 
+                      onClick={() => {
+                        setAppliedStartDate(startDate);
+                        setAppliedEndDate(endDate);
+                        setPage(1); // Reset to page 1 on new filter
+                      }}
+                      disabled={startDate === appliedStartDate && endDate === appliedEndDate}
+                      className={`flex-1 sm:flex-none px-3 py-1.5 rounded-md text-xs font-bold transition-colors shadow-sm ${
+                        startDate === appliedStartDate && endDate === appliedEndDate 
+                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                        : 'bg-amber-500 text-white hover:bg-amber-600'
+                      }`}
+                   >
+                     Apply
+                   </button>
+    
+                   {(appliedStartDate || appliedEndDate) && (
+                     <button 
+                        onClick={() => { 
+                          setStartDate(''); setEndDate(''); 
+                          setAppliedStartDate(''); setAppliedEndDate(''); 
+                        }} 
+                        className="shrink-0 p-1.5 rounded bg-red-50 hover:bg-red-100 text-red-500 transition-colors"
+                        title="Clear Date Filter"
+                     >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                     </button>
+                   )}
+                 </div>
             </div>
 
             <div className="flex gap-3 w-full lg:w-auto">

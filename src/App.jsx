@@ -36,17 +36,28 @@ function MainLayout() {
     <div className="flex flex-col h-screen bg-slate-50 font-sans text-slate-800 selection:bg-yellow-500 selection:text-slate-900">
       
       {/* Premium Shared Header */}
-      <header className="bg-white border-b border-slate-200 px-4 md:px-6 py-3 md:py-4 flex justify-between items-center z-10 sticky top-0 shadow-sm shrink-0">
-        <div className="flex items-center gap-4 md:gap-6">
+      <header className="bg-white border-b border-slate-200 px-4 md:px-6 py-3 md:py-4 flex flex-col md:flex-row justify-between md:items-center gap-3 md:gap-0 z-10 sticky top-0 shadow-sm shrink-0">
+        <div className="flex justify-between items-center w-full md:w-auto">
           <h1 className="text-xl md:text-2xl font-black tracking-tight text-slate-900">
             OpenLiveLink<span className="text-yellow-500">.</span>
           </h1>
-          <nav className="flex gap-2 md:gap-4 text-xs md:text-sm font-medium text-slate-500">
+          <div className="flex items-center gap-3 md:hidden">
+            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+            <button 
+              onClick={signOut}
+              className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-200"
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+        <div className="flex justify-between items-center w-full md:w-auto">
+          <nav className="flex gap-2 md:gap-4 text-xs md:text-sm font-medium text-slate-500 overflow-x-auto pb-1 -mb-1">
             {navItems.map((item) => (
               <Link
                 key={item.path}
                 to={item.path}
-                className={`px-3 md:px-4 py-1.5 rounded-full transition-all ${
+                className={`px-3 md:px-4 py-1.5 rounded-full transition-all whitespace-nowrap ${
                   currentPath === item.path
                     ? 'bg-yellow-500 text-white shadow-md shadow-yellow-500/20'
                     : 'hover:bg-slate-100 text-slate-600'
@@ -56,20 +67,20 @@ function MainLayout() {
               </Link>
             ))}
           </nav>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 md:gap-3">
-            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
-            <span className="text-xs md:text-sm font-semibold text-slate-600 hidden sm:block">
-              {statusLabel[currentPath] || 'Dashboard'}
-            </span>
+          <div className="hidden md:flex items-center gap-4 ml-6 border-l border-slate-200 pl-6">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+              <span className="text-sm font-semibold text-slate-600">
+                {statusLabel[currentPath] || 'Dashboard'}
+              </span>
+            </div>
+            <button 
+              onClick={signOut}
+              className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-200"
+            >
+              Sign Out
+            </button>
           </div>
-          <button 
-            onClick={signOut}
-            className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-200"
-          >
-            Sign Out
-          </button>
         </div>
       </header>
 
