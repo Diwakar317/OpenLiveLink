@@ -12,7 +12,11 @@ const SERIAL_NUMBER = process.env.JCB_SERIAL_NUMBER || "HAR3DXS5K03564175";
 const TENANCY_ID = process.env.JCB_TENANCY_ID || "2742799";
 
 // The secret key we reverse-engineered!
-const AES_SECRET = "U2FsdGVkX1JpMrkNhTK+ERbFNF9696idtaVvUP320Q";
+const AES_SECRET = process.env.JCB_AES_SECRET;
+
+if (!AES_SECRET) {
+  console.warn("WARNING: JCB_AES_SECRET is missing from environment variables!");
+}
 
 // Initialize Supabase client
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
