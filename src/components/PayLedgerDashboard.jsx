@@ -152,8 +152,9 @@ function PayeeDetailModal({ group, aliases, onClose, onSaveAlias, onRemoveAlias,
             <span>📜</span> Transaction History
           </h4>
           
-          <div className="max-h-[50vh] overflow-y-auto border border-slate-200 rounded-xl">
-             <table className="w-full text-sm table-fixed">
+          <div className="max-h-[50vh] overflow-y-auto border border-slate-200 rounded-xl custom-scrollbar">
+             {/* Desktop Table View */}
+             <table className="hidden md:table w-full text-sm table-fixed">
                 <thead className="bg-slate-50 sticky top-0 shadow-sm z-10">
                   <tr>
                     <th className="w-[25%] text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase">Date</th>
@@ -203,6 +204,47 @@ function PayeeDetailModal({ group, aliases, onClose, onSaveAlias, onRemoveAlias,
                   })}
                 </tbody>
              </table>
+
+             {/* Mobile Card View */}
+             <div className="md:hidden divide-y divide-slate-100">
+                {group.transactions.map((txn) => {
+                   const isPaid = txn.amount < 0;
+                   return (
+                      <div key={txn.transaction_id || txn.id} className="p-4 bg-white hover:bg-slate-50 flex flex-col gap-3 relative group">
+                         <div className="flex justify-between items-start">
+                            <div>
+                               <p className="font-medium text-slate-700 leading-none">{formatDate(txn.date)}</p>
+                               <p className="text-[10px] text-slate-400 mt-1">{formatTime(txn.time)}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                               <span className={`font-bold text-base ${isPaid ? 'text-red-600' : 'text-green-600'}`}>
+                                  {isPaid ? '-' : '+'}{formatCurrency(Math.abs(txn.amount))}
+                               </span>
+                               <button 
+                                  onClick={() => {
+                                    confirmAction({
+                                      title: 'Delete Transaction',
+                                      message: 'Are you sure you want to permanently delete this transaction? This cannot be undone.',
+                                      isDestructive: true,
+                                      confirmText: 'Delete',
+                                      onConfirm: () => onDeleteTransaction(txn.id)
+                                    });
+                                  }}
+                                  className="text-slate-300 hover:text-red-500 transition-colors p-1.5 rounded-md hover:bg-red-50"
+                                  title="Delete Transaction"
+                               >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                               </button>
+                            </div>
+                         </div>
+                         <div className="flex items-start gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                            <span className="shrink-0 px-1.5 py-0.5 bg-white border border-slate-200 text-slate-600 text-[10px] rounded font-bold uppercase">{txn.upi_id ? 'UPI' : 'A/C'}</span>
+                            <span className="text-[11px] text-slate-600 leading-relaxed break-words">{txn.remarks}</span>
+                         </div>
+                      </div>
+                   );
+                })}
+             </div>
           </div>
         </div>
       </div>
