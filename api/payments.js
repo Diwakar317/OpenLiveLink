@@ -199,7 +199,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { search, month, start_date, end_date, status, transaction_id, min_amount, max_amount, limit, offset, sort_by, sort_dir } = req.query;
+    const { search, month, start_date, end_date, profile_id, transaction_id, min_amount, max_amount, limit, offset, sort_by, sort_dir } = req.query;
 
     let query = supabase.from('payments').select('*', { count: 'exact' });
 
@@ -238,8 +238,8 @@ export default async function handler(req, res) {
       query = query.gte('date', mStartDate).lte('date', mEndDate);
     }
 
-    if (status) {
-      query = query.eq('status', status);
+    if (profile_id) {
+      query = query.eq('profile_id', profile_id);
     }
 
     if (min_amount) {
@@ -271,7 +271,7 @@ export default async function handler(req, res) {
     if (transaction_id) rpcParams.transaction_id_param = transaction_id;
     if (start_date) rpcParams.start_date_param = start_date;
     if (end_date) rpcParams.end_date_param = end_date;
-    if (status) rpcParams.status_param = status;
+    if (profile_id) rpcParams.profile_param = profile_id;
     if (month && (!start_date || !end_date)) {
         const mStartDate = `${month}-01`;
         const [year, mon] = month.split('-').map(Number);
@@ -348,7 +348,7 @@ async function handlePut(req, res, supabase) {
     const hasAmount = merged.amount !== null && merged.amount > 0;
     const hasId = merged.transaction_id || merged.upi_id || merged.account_number;
     
-    updates.status = (hasAmount && hasId) ? 'valid' : 'needs_review';
+    // updates.status removed since it is obsolete
 
     const { data, error } = await supabase
       .from('payments')

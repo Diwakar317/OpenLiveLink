@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import { supabase } from '../supabaseClient';
 import { parseStatement, groupTransactions } from '../utils/statementParser';
 
@@ -253,6 +254,7 @@ function PayeeDetailModal({ group, aliases, onClose, onSaveAlias, onRemoveAlias,
 }
 
 export default function PayLedgerDashboard() {
+  const [activeProfile, setActiveProfile] = useState('Shri Vindvashini');
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [payments, setPayments] = useState([]);
@@ -321,7 +323,7 @@ export default function PayLedgerDashboard() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from('payments').select('*').order('date', { ascending: false });
+      const { data, error } = await supabase.from('payments').select('*').eq('profile_id', activeProfile).order('date', { ascending: false });
       if (error) throw error;
       
       const aliasRes = await authFetch('/api/aliases');
@@ -341,7 +343,7 @@ export default function PayLedgerDashboard() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [activeProfile]);
 
   const handleSaveAlias = async (groupOriginalKeys, newName) => {
     if (!newName || !groupOriginalKeys || groupOriginalKeys.length === 0) return;
@@ -478,10 +480,15 @@ export default function PayLedgerDashboard() {
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
-        const parsedTxns = parseStatement(reader.result);
+        const data = new Uint8Array(evt.target.result);
+        const workbook = XLSX.read(data, {type: 'array', raw: true});
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(sheet, {header: 1, raw: true});
+
+        const parsedTxns = parseStatement(json);
         
         if (parsedTxns.length === 0) {
-           showAlert("No valid transactions found in the file.", "Empty File");
+           showAlert("No valid transactions found in the file or layout not recognized.", "Upload Failed");
            setUploading(false);
            return;
         }
@@ -498,7 +505,12 @@ export default function PayLedgerDashboard() {
         }
 
         showAlert(`Successfully synced ${parsedTxns.length} transactions!`, "Upload Complete");
-        fetchData();
+        const detectedProfile = parsedTxns[0].profile_id;
+        if (activeProfile !== detectedProfile) {
+           setActiveProfile(detectedProfile);
+        } else {
+           fetchData();
+        }
       } catch (err) {
          console.error('Upload error:', err);
          showAlert('Error processing file: ' + err.message, "Upload Failed");
@@ -507,7 +519,7 @@ export default function PayLedgerDashboard() {
          if (fileInputRef.current) fileInputRef.current.value = '';
       }
     };
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
   };
 
   const dynamicallyGroupedData = useMemo(() => {
@@ -583,21 +595,30 @@ export default function PayLedgerDashboard() {
       
       {/* Header & Upload */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-         <div>
-           <h2 className="text-lg font-black text-slate-800">Payee Directory</h2>
-           <p className="text-xs font-medium text-slate-500">Grouped analysis of your bank statements</p>
-         </div>
-         <div>
-           <input type="file" accept=".psv" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
-           <button 
-             onClick={() => fileInputRef.current?.click()}
-             disabled={uploading}
-             className="flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold rounded-lg transition-all shadow-sm disabled:opacity-50"
-           >
-             {uploading ? 'Syncing...' : 'Import Statement'}
-           </button>
-         </div>
-      </div>
+           <div className="flex-grow">
+             <h2 className="text-lg font-black text-slate-800">Payee Directory</h2>
+             <p className="text-xs font-medium text-slate-500">Grouped analysis of your bank statements</p>
+           </div>
+           <div className="flex items-center gap-3 w-full sm:w-auto">
+             <select 
+               value={activeProfile} 
+               onChange={(e) => setActiveProfile(e.target.value)}
+               className="px-3 py-2 bg-slate-50 border border-slate-200 text-slate-700 font-bold rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 w-full sm:w-auto"
+             >
+               <option value="Shri Vindvashini">Shri Vindvashini</option>
+               <option value="Rita Singh">Rita Singh</option>
+               <option value="Prasidha Singh">Prasidha Singh</option>
+             </select>
+             <input type="file" accept=".psv,.csv,.xls,.xlsx" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
+             <button 
+               onClick={() => fileInputRef.current?.click()}
+               disabled={uploading}
+               className="flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold rounded-lg transition-all shadow-sm disabled:opacity-50 whitespace-nowrap"
+             >
+               {uploading ? 'Syncing...' : 'Import'}
+             </button>
+           </div>
+        </div>
 
       {/* Analytics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
