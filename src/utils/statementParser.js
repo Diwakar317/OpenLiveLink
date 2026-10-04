@@ -142,7 +142,8 @@ export function parseStatement(data) {
 
     } else if (
       descUpper.includes('CASH WDL') ||
-      descUpper.startsWith('CAM/') && descUpper.includes('CASH WDL')
+      descUpper.startsWith('CASH PAID:SELF') ||
+      (descUpper.startsWith('CAM/') && descUpper.includes('CASH WDL'))
     ) {
       method = 'CASH'; recipientName = 'CASH WITHDRAWAL';
 
@@ -190,6 +191,17 @@ export function parseStatement(data) {
       method = 'NEFT';
       recipientName = (descParts[4] || descParts[3] || 'Unknown').trim();
       identifier    = descParts[3] || '';
+
+    // ── ICICI: INF/INFT (internal transfer) ──────────────────────────────────
+    } else if (descUpper.startsWith('INF/INFT/')) {
+      method = 'TRANSFER';
+      recipientName = (descParts[3] || 'Unknown').trim();
+      identifier    = descParts[2] || '';
+
+    // ── ICICI: CLG (Cheque Clearing) ─────────────────────────────────────────
+    } else if (descUpper.startsWith('CLG/')) {
+      method = 'CHEQUE';
+      recipientName = (descParts[1] || 'Unknown').trim();
 
     // ── NEFT: ICICI dash format ───────────────────────────────────────────────
     } else if (descUpper.startsWith('NEFT-')) {
