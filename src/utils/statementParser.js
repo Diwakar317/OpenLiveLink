@@ -204,7 +204,9 @@ export function parseStatement(data) {
     // ── ICICI: INF/INFT (internal transfer) ──────────────────────────────────
     } else if (descUpper.startsWith('INF/INFT/')) {
       method = 'TRANSFER';
-      recipientName = (descParts[3] || 'Unknown').trim();
+      let rawName = (descParts[3] || 'Unknown').trim();
+      // Add spaces before capital letters (e.g. "PrasidhaSingh" -> "Prasidha Singh")
+      recipientName = rawName.replace(/([a-z])([A-Z])/g, '$1 $2');
       identifier    = descParts[2] || '';
 
     // ── ICICI: CLG (Cheque Clearing) ─────────────────────────────────────────
@@ -212,21 +214,19 @@ export function parseStatement(data) {
       method = 'CHEQUE';
       recipientName = (descParts[1] || 'Unknown').trim();
 
-    // ── NEFT: ICICI dash format ───────────────────────────────────────────────
-    } else if (descUpper.startsWith('NEFT-')) {
-      method = 'NEFT';
-      // NEFT-{ref}-{sender_name}-ATTN...
-      const parts   = desc.split('-');
-      identifier    = parts[1] || '';
+    // ── NEFT / RTGS dash format ───────────────────────────────────────────────
+    } else if (descUpper.startsWith('NEFT-') || descUpper.startsWith('RTGS-')) {
+      method = descUpper.startsWith('NEFT-') ? 'NEFT' : 'RTGS';
+      const parts = desc.split('-');
       recipientName = (parts[2] || 'Unknown').trim();
-      if (!txnId) txnId = identifier;
+      if (!txnId && parts[1]) txnId = parts[1]; // use TxnRef as txnId
 
-    // ── RTGS dash format ──────────────────────────────────────────────────────
-    } else if (descUpper.startsWith('RTGS-')) {
-      method = 'RTGS';
-      const parts   = desc.split('-');
-      recipientName = (parts[2] || 'Unknown').trim();
-      identifier    = parts[3] || '';
+      // Extract account number: it is typically the second to last part (before the IFSC code)
+      if (parts.length >= 5) {
+         identifier = parts[parts.length - 2].trim();
+      } else {
+         identifier = parts[3] || parts[1] || '';
+      }
 
     // ── ICICI: CMS (loan EMI auto-debit) ─────────────────────────────────────
     } else if (descUpper.startsWith('CMS/')) {
@@ -238,7 +238,7 @@ export function parseStatement(data) {
     } else if (descUpper.startsWith('ACH/')) {
       method = 'NACH';
       recipientName = (descParts[1] || 'Unknown').trim();
-      identifier    = descParts[2] || '';
+      identifier    = descParts[3] || descParts[2] || '';
 
     // ── ICICI: AD~ (loan auto-debit notice) ───────────────────────────────────
     } else if (descUpper.startsWith('AD~')) {
