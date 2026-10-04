@@ -236,11 +236,11 @@ export function parseStatement(data) {
          identifier = parts[3] || parts[1] || '';
       }
 
-    // ── ICICI: CMS (loan EMI auto-debit) ─────────────────────────────────────
+    // ── ICICI: CMS (loan EMI auto-debit / bulk payments) ─────────────────────
     } else if (descUpper.startsWith('CMS/')) {
       method = 'EMI';
       recipientName = (descParts[2] || 'Unknown').trim();
-      identifier    = descParts[1] || '';
+      identifier    = ''; // leave blank so it groups by name
 
     // ── ICICI: ACH (NACH mandate debit) ──────────────────────────────────────
     } else if (descUpper.startsWith('ACH/')) {
