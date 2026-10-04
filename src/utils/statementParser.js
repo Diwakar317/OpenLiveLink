@@ -167,12 +167,21 @@ export function parseStatement(data) {
       method = 'TRANSFER';
       recipientName = desc.replace(/^TFR?R FROM\s*:?\s*/i, '').trim() || 'Internal Transfer';
 
-    // ── ICICI / BOI: UPI ─────────────────────────────────────────────────────
+    // ── ICICI: UPI ───────────────────────────────────────────────────────────
     } else if (descUpper.startsWith('UPI/')) {
       method = 'UPI';
-      // ICICI UPI format: UPI/{display_name}/{vpa}/{remark}/{bank}/{upi_ref}/{ICI_hash}
-      recipientName = (descParts[1] || 'Unknown').trim();
-      identifier    = (descParts[2] || '').trim(); // VPA
+      const part1 = (descParts[1] || '').trim();
+
+      // Some ICICI formats place a 12-digit numeric reference immediately after UPI/
+      if (/^\d{10,}$/.test(part1)) {
+        recipientName = (descParts[2] || 'Unknown').trim();
+        identifier    = (descParts[3] || '').trim(); // VPA
+        if (!txnId) txnId = part1; 
+      } else {
+        recipientName = part1 || 'Unknown';
+        identifier    = (descParts[2] || '').trim(); // VPA
+      }
+
       // If display name is generic, fall back to VPA username
       if (GENERIC_REMARKS.includes(recipientName.toLowerCase()) && identifier.includes('@')) {
         recipientName = identifier.split('@')[0];
