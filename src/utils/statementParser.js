@@ -7,18 +7,9 @@ export function parseStatement(data) {
   
   if (!Array.isArray(data) || data.length === 0) return transactions;
 
-  // 1. SMART PROFILE DETECTION (Scan top 10 rows)
-  let profileId = 'Shri Vindvashini'; // default fallback
-  const topRows = data.slice(0, 10);
-  const topText = topRows.map(r => (r || []).join(' ')).join(' ').toUpperCase();
-  
-  if (topText.includes('RITA SINGH')) {
-    profileId = 'Rita Singh';
-  } else if (topText.includes('SHRI VINDVASHNI')) {
-    profileId = 'Shri Vindvashini';
-  } else if (topText.includes('PRASIDHA SINGH')) {
-    profileId = 'Prasidha Singh';
-  }
+  // 1. ALL STATEMENTS DEFAULT TO SHRI VINDVASHINI
+  const profileId = 'Shri Vindvashini'; 
+
 
   // 2. DYNAMIC LAYOUT DETECTION
   let headerRowIndex = -1;
