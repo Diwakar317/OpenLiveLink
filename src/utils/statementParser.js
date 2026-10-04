@@ -207,7 +207,7 @@ export function parseStatement(data) {
     } else if (descUpper.startsWith('INF/NEFT/')) {
       method = 'NEFT';
       recipientName = (descParts[4] || descParts[3] || 'Unknown').trim();
-      identifier    = descParts[3] || '';
+      identifier    = ''; // leave blank so it groups by name (was grabbing IFSC)
 
     // ── ICICI: INF/INFT (internal transfer) ──────────────────────────────────
     } else if (descUpper.startsWith('INF/INFT/')) {
@@ -215,7 +215,7 @@ export function parseStatement(data) {
       let rawName = (descParts[3] || 'Unknown').trim();
       // Add spaces before capital letters (e.g. "PrasidhaSingh" -> "Prasidha Singh")
       recipientName = rawName.replace(/([a-z])([A-Z])/g, '$1 $2');
-      identifier    = descParts[2] || '';
+      identifier    = ''; // leave blank so it groups by name (was grabbing TxnRef)
 
     // ── ICICI: CLG (Cheque Clearing) ─────────────────────────────────────────
     } else if (descUpper.startsWith('CLG/')) {
