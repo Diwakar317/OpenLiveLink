@@ -254,7 +254,7 @@ function PayeeDetailModal({ group, aliases, onClose, onSaveAlias, onRemoveAlias,
 }
 
 export default function PayLedgerDashboard() {
-  const [selectedGroup, setSelectedGroup] = useState(null);
+
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [payments, setPayments] = useState([]);
