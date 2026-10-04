@@ -198,9 +198,10 @@ export function parseStatement(data) {
     } else if (descUpper.startsWith('MMT/IMPS/')) {
       method = 'IMPS';
       // MMT/IMPS/{ref}/{remark}/{recipient}/{bank}
-      recipientName = (descParts[4] || descParts[3] || 'Unknown').trim();
-      identifier    = descParts[2] || ''; // txn ref
-      if (!txnId) txnId = identifier;     // use ref as txnId if not already set
+      let rawName = (descParts[4] || descParts[3] || 'Unknown').trim();
+      recipientName = rawName.replace(/([a-z])([A-Z])/g, '$1 $2');
+      if (!txnId) txnId = descParts[2] || '';
+      identifier = ''; // leave blank so it groups by name
 
     // ── NEFT: INF/NEFT slash format ───────────────────────────────────────────
     } else if (descUpper.startsWith('INF/NEFT/')) {
