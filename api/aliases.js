@@ -50,7 +50,7 @@ export default async function handler(req, res) {
         transaction_id: 'SYS_ALIASES',
         remarks: JSON.stringify(aliases || {}),
         amount: 0,
-        status: 'valid'
+        profile_id: 'SYS_ALIASES'
      };
      
      const { error } = await supabase.from('payments').upsert(payload, { onConflict: 'source_hash' });
