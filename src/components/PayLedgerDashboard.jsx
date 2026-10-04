@@ -254,7 +254,7 @@ function PayeeDetailModal({ group, aliases, onClose, onSaveAlias, onRemoveAlias,
 }
 
 export default function PayLedgerDashboard() {
-  const [activeProfile, setActiveProfile] = useState('Shri Vindvashini');
+  const [selectedGroup, setSelectedGroup] = useState(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [payments, setPayments] = useState([]);
@@ -323,7 +323,7 @@ export default function PayLedgerDashboard() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from('payments').select('*').eq('profile_id', activeProfile).order('date', { ascending: false });
+      const { data, error } = await supabase.from('payments').select('*').eq('profile_id', 'Shri Vindvashini').order('date', { ascending: false });
       if (error) throw error;
       
       const aliasRes = await authFetch('/api/aliases');
@@ -343,7 +343,7 @@ export default function PayLedgerDashboard() {
 
   useEffect(() => {
     fetchData();
-  }, [activeProfile]);
+  }, []);
 
   const handleSaveAlias = async (groupOriginalKeys, newName) => {
     if (!newName || !groupOriginalKeys || groupOriginalKeys.length === 0) return;
@@ -506,11 +506,10 @@ export default function PayLedgerDashboard() {
 
         showAlert(`Successfully synced ${parsedTxns.length} transactions!`, "Upload Complete");
         const detectedProfile = parsedTxns[0].profile_id;
-        if (activeProfile !== detectedProfile) {
-           setActiveProfile(detectedProfile);
-        } else {
-           fetchData();
+        if (detectedProfile !== 'Shri Vindvashini') {
+           alert('Warning: Uploaded statement is not for Shri Vindvashini. Storing it anyway, but please ensure this is correct.');
         }
+        fetchData();
       } catch (err) {
          console.error('Upload error:', err);
          showAlert('Error processing file: ' + err.message, "Upload Failed");
@@ -600,15 +599,6 @@ export default function PayLedgerDashboard() {
              <p className="text-xs font-medium text-slate-500">Grouped analysis of your bank statements</p>
            </div>
            <div className="flex items-center gap-3 w-full sm:w-auto">
-             <select 
-               value={activeProfile} 
-               onChange={(e) => setActiveProfile(e.target.value)}
-               className="px-3 py-2 bg-slate-50 border border-slate-200 text-slate-700 font-bold rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 w-full sm:w-auto"
-             >
-               <option value="Shri Vindvashini">Shri Vindvashini</option>
-               <option value="Rita Singh">Rita Singh</option>
-               <option value="Prasidha Singh">Prasidha Singh</option>
-             </select>
              <input type="file" accept=".psv,.csv,.xls,.xlsx" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
              <button 
                onClick={() => fileInputRef.current?.click()}
