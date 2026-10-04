@@ -163,21 +163,28 @@ export function parseStatement(data) {
       method = 'FEE'; recipientName = 'BANK CHARGES';
 
     // ── ICICI: TRFR FROM (internal transfer) ─────────────────────────────────
-    } else if (descUpper.startsWith('TRFR FROM') || descUpper.startsWith('TFRR FROM')) {
+    } else if (descUpper.match(/^(TRFR|TFRR?)\s*FROM/)) {
       method = 'TRANSFER';
-      recipientName = desc.replace(/^TFR?R FROM\s*:?\s*/i, '').trim() || 'Internal Transfer';
+      recipientName = desc.replace(/^(TRFR|TFRR?)\s*FROM\s*:?\s*/i, '').trim() || 'Internal Transfer';
 
     // ── ICICI: UPI ───────────────────────────────────────────────────────────
     } else if (descUpper.startsWith('UPI/')) {
-      method = 'UPI';
       const part1 = (descParts[1] || '').trim();
 
+      // Handle UPI Reversals
+      if (part1.startsWith('RVSL')) {
+        method = 'UPI REVERSAL';
+        recipientName = (descParts[2] || 'Unknown').trim();
+        identifier    = (descParts[3] || '').trim();
+      }
       // Some ICICI formats place a 12-digit numeric reference immediately after UPI/
-      if (/^\d{10,}$/.test(part1)) {
+      else if (/^\d{10,}$/.test(part1)) {
+        method = 'UPI';
         recipientName = (descParts[2] || 'Unknown').trim();
         identifier    = (descParts[3] || '').trim(); // VPA
         if (!txnId) txnId = part1; 
       } else {
+        method = 'UPI';
         recipientName = part1 || 'Unknown';
         identifier    = (descParts[2] || '').trim(); // VPA
       }
