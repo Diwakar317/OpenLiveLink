@@ -27,10 +27,6 @@ export function parseStatement(data) {
        headerRowIndex = i;
        layout = 'LAYOUT_B'; // Cr/Dr Toggle (Shri Vindvashini)
        break;
-    } else if (rowStr.includes('DEBIT') && rowStr.includes('CREDIT') && rowStr.includes('REMARKS')) {
-       headerRowIndex = i;
-       layout = 'LAYOUT_C'; // Debit/Credit Columns (Rita)
-       break;
     } else if (rowStr.includes('NO.|TRANSACTION ID|VALUE DATE')) {
        headerRowIndex = i;
        layout = 'LAYOUT_PSV'; // Legacy PSV handled as 1-column array
@@ -106,31 +102,6 @@ export function parseStatement(data) {
        isDebit = type === 'DR';
        amountStr = getStr(row[7]);
     }
-    else if (layout === 'LAYOUT_C') {
-       // [Sr No, Date, Remarks, Debit, Credit, Balance Amount]
-       // Skip footer disclaimer rows — col[0] must be a numeric Sr No
-       const srNo = getStr(row[0]);
-       if (!srNo || isNaN(Number(srNo))) continue;
-       // col[1] must look like DD-MM-YYYY
-       const rawDate = getStr(row[1]);
-       if (!rawDate || !/^\d{2}-\d{2}-\d{4}$/.test(rawDate)) continue;
-       dateStr = rawDate;
-       desc = getStr(row[2]);
-       if (!desc) continue;
-
-       const debit  = parseFloat(getStr(row[3]).replace(/,/g, ''));
-       const credit = parseFloat(getStr(row[4]).replace(/,/g, ''));
-
-       if (!isNaN(debit) && debit > 0) {
-          isDebit = true;
-          amountStr = debit;
-       } else if (!isNaN(credit) && credit > 0) {
-          isDebit = false;
-          amountStr = credit;
-       } else {
-          continue;
-       }
-    }
 
     if (!desc) continue;
 
@@ -198,24 +169,12 @@ export function parseStatement(data) {
     // ── ICICI / BOI: UPI ─────────────────────────────────────────────────────
     } else if (descUpper.startsWith('UPI/')) {
       method = 'UPI';
-      if (layout === 'LAYOUT_C') {
-        // BOI UPI format: UPI/{ref}/{CR|DR}/{name}/{bank}/{vpa}/{remark}
-        // part[1]=ref, part[2]=CR/DR, part[3]=name, part[4]=bank, part[5]=vpa
-        recipientName = (descParts[3] || 'Unknown').trim();
-        identifier    = (descParts[5] || '').trim(); // VPA
-        // If name is just a bank/network code, fall back to VPA username
-        const GENERIC_BANK_CODES = ['NPCI B', 'BHIM', 'NPCIB', 'UPI'];
-        if (GENERIC_BANK_CODES.includes(recipientName.toUpperCase())) {
-          recipientName = identifier ? identifier.split('@')[0] : recipientName;
-        }
-      } else {
-        // ICICI UPI format: UPI/{display_name}/{vpa}/{remark}/{bank}/{upi_ref}/{ICI_hash}
-        recipientName = (descParts[1] || 'Unknown').trim();
-        identifier    = (descParts[2] || '').trim(); // VPA
-        // If display name is generic, fall back to VPA username
-        if (GENERIC_REMARKS.includes(recipientName.toLowerCase()) && identifier.includes('@')) {
-          recipientName = identifier.split('@')[0];
-        }
+      // ICICI UPI format: UPI/{display_name}/{vpa}/{remark}/{bank}/{upi_ref}/{ICI_hash}
+      recipientName = (descParts[1] || 'Unknown').trim();
+      identifier    = (descParts[2] || '').trim(); // VPA
+      // If display name is generic, fall back to VPA username
+      if (GENERIC_REMARKS.includes(recipientName.toLowerCase()) && identifier.includes('@')) {
+        recipientName = identifier.split('@')[0];
       }
 
     // ── ICICI: MMT/IMPS (outgoing IMPS) ──────────────────────────────────────
@@ -225,55 +184,6 @@ export function parseStatement(data) {
       recipientName = (descParts[4] || descParts[3] || 'Unknown').trim();
       identifier    = descParts[2] || ''; // txn ref
       if (!txnId) txnId = identifier;     // use ref as txnId if not already set
-
-    // ── BOI / ICICI: IMPSUAIB (outgoing IMPS from BOI mobile banking) ─────────
-    } else if (descUpper.startsWith('IMPSUAIB/')) {
-      method = 'IMPS';
-      // IMPSUAIB/{txn_ref}/UAIB{free_name}
-      identifier    = descParts[1] || '';
-      const rawName = (descParts[2] || '').replace(/^UAIB/i, '').trim();
-      recipientName = rawName || 'Unknown';
-      if (!txnId) txnId = identifier;
-
-    // ── BOI: IMPS (incoming, name provided) ──────────────────────────────────
-    } else if (descUpper.startsWith('IMPS/')) {
-      method = 'IMPS';
-      // IMPS/{txn_ref}/{sender_name}
-      identifier    = descParts[1] || '';
-      recipientName = (descParts[2] || 'Unknown').trim();
-      if (!txnId) txnId = identifier;
-
-    // ── BOI: IMPSIB (incoming IMPS, no real name) ─────────────────────────────
-    } else if (descUpper.startsWith('IMPSIB/')) {
-      method = 'IMPS';
-      identifier    = descParts[1] || '';
-      recipientName = 'UNKNOWN';
-      if (!txnId) txnId = identifier;
-
-    // ── BOI: A01IMPSREV (IMPS reversal — same payee, marked credit) ──────────
-    } else if (descUpper.startsWith('A01IMPSREV/')) {
-      method = 'IMPS';
-      // A01IMPSREV/{original_txn_ref}/{date}
-      const origRef = descParts[1] || '';
-      identifier    = origRef;
-      recipientName = 'IMPS REVERSAL';
-      if (!txnId) txnId = 'REV_' + origRef;
-
-    // ── NEFT: BOI slash format ────────────────────────────────────────────────
-    } else if (descUpper.startsWith('NEFT/')) {
-      method = 'NEFT';
-      // NEFT/{ref}/{ifsc_prefix}/{payee_name_truncated}
-      identifier    = descParts[1] || '';
-      recipientName = (descParts[3] || descParts[2] || 'Unknown').trim();
-      if (!txnId) txnId = identifier;
-
-    // ── NEFT: BOI / incoming NEFT (UNAWBNEFT) ────────────────────────────────
-    } else if (descUpper.startsWith('UNAWBNEFT/')) {
-      method = 'NEFT';
-      // UNAWBNEFT/{bank+ref}/{bank_code}/{sender_name}
-      identifier    = descParts[1] || '';
-      recipientName = (descParts[3] || descParts[2] || 'Unknown').trim();
-      if (!txnId) txnId = identifier;
 
     // ── NEFT: INF/NEFT slash format ───────────────────────────────────────────
     } else if (descUpper.startsWith('INF/NEFT/')) {
@@ -300,14 +210,8 @@ export function parseStatement(data) {
     // ── ICICI: CMS (loan EMI auto-debit) ─────────────────────────────────────
     } else if (descUpper.startsWith('CMS/')) {
       method = 'EMI';
-      if (desc.includes('SMSOTP__1410631691222')) {
-        // Prasidha Singh's HDFC home loan EMI — ₹22,275/month
-        recipientName = 'HDFC Bank';
-        identifier    = 'HDFC_LOAN_1410631691222';
-      } else {
-        recipientName = (descParts[2] || 'Unknown').trim();
-        identifier    = descParts[1] || '';
-      }
+      recipientName = (descParts[2] || 'Unknown').trim();
+      identifier    = descParts[1] || '';
 
     // ── ICICI: ACH (NACH mandate debit) ──────────────────────────────────────
     } else if (descUpper.startsWith('ACH/')) {
@@ -347,29 +251,6 @@ export function parseStatement(data) {
       method = 'MERCHANT';
       recipientName = (descParts[1] || 'Unknown').trim();
       identifier    = descParts[3] || '';
-
-    // ── BOI: APBS (government subsidy / DBT credit) ───────────────────────────
-    } else if (descUpper.startsWith('APBS')) {
-      method = 'GOVT';
-      // APBS CR INW - HPCL LPG SUBSIDY  1234567  RITA S
-      const apbsMatch = desc.match(/APBS.*?-\s*(.+?)\s{2,}\d/i);
-      recipientName   = apbsMatch ? apbsMatch[1].trim() : 'GOVT SUBSIDY';
-
-    // ── BOI: SBInt.Pd (savings bank interest credit) ──────────────────────────
-    } else if (desc.includes(':SBInt.Pd:') || desc.includes(':Int.Pd:')) {
-      method = 'INTEREST';
-      recipientName = 'SAVINGS BANK INTEREST';
-
-    // ── BOI: REVMERV (merchant refund / reversal) ─────────────────────────────
-    } else if (descUpper.startsWith('REVMERV')) {
-      method = 'REFUND';
-      recipientName = 'REFUND';
-
-    // ── BOI: MEDR (merchant debit / POS) ─────────────────────────────────────
-    } else if (descUpper.startsWith('MEDR/')) {
-      method = 'MERCHANT';
-      recipientName = (descParts[1] || 'Unknown').trim();
-      identifier    = descParts[2] || '';
 
     // ── Fallback ──────────────────────────────────────────────────────────────
     } else {
